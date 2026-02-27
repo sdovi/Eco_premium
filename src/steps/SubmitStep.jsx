@@ -1,47 +1,39 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppState } from '../context/AppContext.jsx';
 import { submitOrder } from '../utils/api.js';
 
 export default function SubmitStep() {
   const { state, dispatch } = useAppState();
+  const sentRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (state.submitStatus !== 'idle' || sentRef.current) return;
+    sentRef.current = true;
 
-    const run = async () => {
-      if (state.submitStatus !== 'idle') return;
-      dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'loading' });
-      try {
-        await submitOrder({
-          name: state.name,
-          phone: state.phone,
-          tariff: state.tariff,
-          paymentMethod: state.paymentMethod,
-          address: state.address,
-        });
-        if (!cancelled) {
-          dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'success' });
-        }
-      } catch {
+    let cancelled = false;
+    dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'loading' });
+
+    submitOrder({
+      name: state.name,
+      phone: state.phone,
+      tariff: state.tariff,
+      paymentMethod: state.paymentMethod,
+      address: state.address,
+    })
+      .then(() => {
+        if (!cancelled) dispatch({ type: 'GO_TO_CABINET' });
+      })
+      .catch(() => {
         if (!cancelled) {
           dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'error' });
+          sentRef.current = false;
         }
-      }
-    };
+      });
 
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dispatch, state.address, state.name, state.paymentMethod, state.phone, state.submitStatus, state.tariff]);
-
-  const handleFinish = () => {
-    dispatch({ type: 'RESET' });
-  };
+    return () => { cancelled = true; };
+  }, [state.name, state.phone, state.tariff, state.paymentMethod, state.address, state.submitStatus, dispatch]);
 
   const loading = state.submitStatus === 'loading';
-  const success = state.submitStatus === 'success';
   const error = state.submitStatus === 'error';
 
   return (
@@ -62,22 +54,6 @@ export default function SubmitStep() {
           </>
         )}
 
-        {success && (
-          <>
-            <p className="text-sm text-gray-700">
-              Заявка успешно отправлена! Наш оператор свяжется с вами в ближайшее время в
-              Telegram или по телефону.
-            </p>
-            <button
-              type="button"
-              onClick={handleFinish}
-              className="mt-4 w-full inline-flex items-center justify-center rounded-xl bg-brand-green px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-green-dark focus-ring"
-            >
-              Вернуться к началу
-            </button>
-          </>
-        )}
-
         {error && (
           <>
             <p className="text-sm text-red-600">
@@ -85,7 +61,10 @@ export default function SubmitStep() {
             </p>
             <button
               type="button"
-              onClick={() => dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'idle' })}
+              onClick={() => {
+                dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'idle' });
+                sentRef.current = false;
+              }}
               className="mt-4 w-full inline-flex items-center justify-center rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus-ring"
             >
               Повторить отправку
