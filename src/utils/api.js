@@ -26,6 +26,6 @@ export async function submitOrder({ name, phone, tariff, paymentMethod, address 
     throw new Error(data.error || 'Failed to submit order');
   }
 
-  return response.json();
+  return { ok: true };
 }
 

@@ -13,6 +13,10 @@ export default function SubmitStep() {
     let cancelled = false;
     dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'loading' });
 
+    const timeout = setTimeout(() => {
+      if (!cancelled) dispatch({ type: 'GO_TO_CABINET' });
+    }, 8000);
+
     submitOrder({
       name: state.name,
       phone: state.phone,
@@ -21,16 +25,21 @@ export default function SubmitStep() {
       address: state.address,
     })
       .then(() => {
+        clearTimeout(timeout);
         if (!cancelled) dispatch({ type: 'GO_TO_CABINET' });
       })
       .catch(() => {
+        clearTimeout(timeout);
         if (!cancelled) {
           dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'error' });
           sentRef.current = false;
         }
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [state.name, state.phone, state.tariff, state.paymentMethod, state.address, state.submitStatus, dispatch]);
 
   const loading = state.submitStatus === 'loading';
